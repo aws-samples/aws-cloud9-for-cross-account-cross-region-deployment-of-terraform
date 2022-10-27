@@ -1,0 +1,415 @@
+Description: "Cloud9 Instance and related services to deploy Terraform cross-account cross-region infrastructure (qs-1tggro3ok)"
+Parameters:
+  TerraformBackendBucketName:
+    Description: Please enter the bucket name for terraform backend
+    Type: String
+  SubnetID:
+    Description: Please enter the Subnet ID to place the Cloud9 instance
+    Type: AWS::EC2::Subnet::Id
+  InstanceType:
+    Description: Enter the Instace Type for Cloud9 Instance. (Graviton type not supported as of writing this template)
+    Type: String
+    Default: t3.micro
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: 'Terraform'
+        Parameters:
+          - TerraformBackendBucketName
+      - 
+        Label:
+          default: 'Cloud9 Environment'
+        Parameters:
+          - SubnetID
+          - InstanceType
+    ParameterLabels:
+      TerraformBackendBucketName:
+        default: 'Terraform Backend Bucket Name'
+      SubnetID:
+        default: 'Subnet ID For Cloud9 Instance'
+      InstanceType:
+        default: 'InstanceType to be used For Cloud9 Instance'
+
+Resources:
+  Cloud9Instance:
+    Type: AWS::Cloud9::EnvironmentEC2
+    Properties:
+      Description: Cloud9 Instance used to perform Terraform Deployments
+      AutomaticStopTimeMinutes: 30
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetID
+      ConnectionType: CONNECT_SSM
+  
+  TerraformCloud9Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: CentralCloud9Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns: 
+      - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSCloud9SSMInstanceProfile
+      Policies:
+        - PolicyName: assume-role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'sts:AssumeRole'
+                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/TerraformSpokeRole'
+        - PolicyName: backend-s3
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 's3:ListBucket'
+                Resource:
+                  - !GetAtt 'TerraformBackendS3Bucket.Arn'
+        - PolicyName: backend-s3-objects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:DeleteObject'
+                Resource:
+                  - !Sub '${TerraformBackendS3Bucket.Arn}/*'
+        - PolicyName: backend-dynamodb
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                - 'dynamodb:GetItem'
+                - 'dynamodb:PutItem'
+                - 'dynamodb:DeleteItem'
+                Resource:
+                  - !GetAtt 'BackendDynamoDbTable.Arn'
+        - PolicyName: codecommit-repo
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['codecommit:CreateBranch',
+                'codecommit:TagResource',
+                'codecommit:DeleteCommentContent',
+                'codecommit:ListPullRequests',
+                'codecommit:UpdatePullRequestApprovalRuleContent',
+                'codecommit:PutFile',
+                'codecommit:GetPullRequestApprovalStates',
+                'codecommit:CreateCommit',
+                'codecommit:ListTagsForResource',
+                'codecommit:BatchDescribeMergeConflicts',
+                'codecommit:GetCommentsForComparedCommit',
+                'codecommit:DeletePullRequestApprovalRule',
+                'codecommit:GetCommentReactions',
+                'codecommit:GetComment',
+                'codecommit:UpdateComment',
+                'codecommit:MergePullRequestByThreeWay',
+                'codecommit:UpdateRepositoryDescription',
+                'codecommit:CreatePullRequest',
+                'codecommit:UpdatePullRequestApprovalState',
+                'codecommit:GetPullRequestOverrideState',
+                'codecommit:PostCommentForPullRequest',
+                'codecommit:GetRepositoryTriggers',
+                'codecommit:UpdatePullRequestDescription',
+                'codecommit:UntagResource',
+                'codecommit:GetObjectIdentifier',
+                'codecommit:BatchGetPullRequests',
+                'codecommit:GetFile',
+                'codecommit:GetUploadArchiveStatus',
+                'codecommit:MergePullRequestBySquash',
+                'codecommit:GetDifferences',
+                'codecommit:GetRepository',
+                'codecommit:UpdateRepositoryName',
+                'codecommit:GetMergeConflicts',
+                'codecommit:GetMergeCommit',
+                'codecommit:PostCommentForComparedCommit',
+                'codecommit:GitPush',
+                'codecommit:GetMergeOptions',
+                'codecommit:AssociateApprovalRuleTemplateWithRepository',
+                'codecommit:PutCommentReaction',
+                'codecommit:GetTree',
+                'codecommit:BatchAssociateApprovalRuleTemplateWithRepositories',
+                'codecommit:CreateRepository',
+                'codecommit:GetReferences',
+                'codecommit:GetBlob',
+                'codecommit:DescribeMergeConflicts',
+                'codecommit:UpdatePullRequestTitle',
+                'codecommit:GetCommit',
+                'codecommit:OverridePullRequestApprovalRules',
+                'codecommit:GetCommitHistory',
+                'codecommit:GetCommitsFromMergeBase',
+                'codecommit:BatchGetCommits',
+                'codecommit:TestRepositoryTriggers',
+                'codecommit:DescribePullRequestEvents',
+                'codecommit:UpdatePullRequestStatus',
+                'codecommit:CreatePullRequestApprovalRule',
+                'codecommit:UpdateDefaultBranch',
+                'codecommit:GetPullRequest',
+                'codecommit:PutRepositoryTriggers',
+                'codecommit:UploadArchive',
+                'codecommit:ListAssociatedApprovalRuleTemplatesForRepository',
+                'codecommit:MergeBranchesBySquash',
+                'codecommit:ListBranches',
+                'codecommit:GitPull',
+                'codecommit:BatchGetRepositories',
+                'codecommit:GetCommentsForPullRequest',
+                'codecommit:BatchDisassociateApprovalRuleTemplateFromRepositories',
+                'codecommit:CancelUploadArchive',
+                'codecommit:GetFolder',
+                'codecommit:PostCommentReply',
+                'codecommit:MergeBranchesByFastForward',
+                'codecommit:CreateUnreferencedMergeCommit',
+                'codecommit:EvaluatePullRequestApprovalRules',
+                'codecommit:MergeBranchesByThreeWay',
+                'codecommit:GetBranch',
+                'codecommit:DisassociateApprovalRuleTemplateFromRepository',
+                'codecommit:MergePullRequestByFastForward',
+                'codecommit:DeleteFile',
+                'codecommit:DeleteBranch']
+                Resource: !GetAtt TerraformCodeCommit.Arn
+  TerraformInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: CentralCloud9Role
+      Path: /
+      Roles:
+        - !Ref TerraformCloud9Role
+  TerraformCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: TerraformCodeCommitRepository
+      RepositoryName: TerraformCodeCommit
+  TerraformBackendS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref TerraformBackendBucketName
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+        - SSEAlgorithm: "AES256"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref TerraformBackendS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowSSLRequestsOnly # AWS Foundational Security Best Practices v1.0.0 S3.5
+          Effect: Deny
+          Principal: '*'
+          Action: 's3:*'
+          Resource:
+          - !GetAtt 'TerraformBackendS3Bucket.Arn'
+          - !Sub '${TerraformBackendS3Bucket.Arn}/*'
+          Condition:
+            Bool:
+              'aws:SecureTransport': false
+  BackendDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TerraformLockDynamoDB
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+  InstanceProfileAttach:
+    Type: Custom::InstanceProfileAttach
+    DependsOn: [Cloud9Instance, TerraformInstanceProfile]
+    Properties:
+      ServiceToken: !GetAtt InstanceProfileAttachLambda.Arn
+      Cloud9Id: !Ref Cloud9Instance
+      InstanceProfileName: !Ref TerraformInstanceProfile
+      InstanceProfileArn: !GetAtt TerraformInstanceProfile.Arn
+  
+  InstanceProfileAttachLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: InstanceProfileAttachLambda
+      Architectures:
+      - arm64
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import time
+
+          ec2 = boto3.client('ec2')
+          iam = boto3.client('iam')
+          responseData = {};
+
+          def lambda_handler(event, context):
+            print(event)
+            try:
+                responseData['RequestId'] = event['RequestId'];
+                responseData['StackId'] = event['StackId'];
+                responseData['LogicalResourceId'] = event['LogicalResourceId'];
+                print(responseData);
+
+                Cloud9Id = event['ResourceProperties']['Cloud9Id']
+
+                instance = ec2.describe_instances(
+                    Filters=[
+                        {
+                            'Name': 'tag:aws:cloud9:environment',
+                            'Values': [
+                                Cloud9Id
+                            ]
+                        },
+                    ]
+                )
+
+                instanceid = instance['Reservations'][0]['Instances'][0]['InstanceId']
+
+                if(event['RequestType'] == 'Create'):
+                    
+                    if('IamInstanceProfile' in instance['Reservations'][0]['Instances'][0]):
+                      print('Association already present: '+get_association_id(instanceid))
+                      print('disassociation')
+                      disassociation(get_association_id(instanceid))
+      
+                      while(get_association_id(instanceid) != "NoAssociation"):
+                          print("No Associateion")
+                          time.sleep(5)
+                      
+                      create_association(event,context, instanceid)
+                      
+                      while(get_association_id(instanceid) == "NoAssociation"):
+                          print("Associateion in progress")
+                          time.sleep(5)
+                      
+                      print("Association Complete")
+                    else:
+                      print('create-association')
+                      create_association(event,context, instanceid)
+
+                    
+
+                if(event['RequestType'] == 'Update'):
+                    print('update')
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, event['PhysicalResourceId'])
+
+                if(event['RequestType'] == 'Delete'):
+                    print('delete')
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, event['PhysicalResourceId'])
+
+            except Exception as e:
+              print(e)
+              cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
+
+          def create_association(event,context, instanceid):
+            IamInstanceProfile={
+              'Arn': event['ResourceProperties']['InstanceProfileArn'],
+              'Name': event['ResourceProperties']['InstanceProfileName']
+            }
+
+            response = ec2.associate_iam_instance_profile(
+                IamInstanceProfile=IamInstanceProfile,
+                InstanceId=instanceid
+            )
+
+            print(response)
+            responseData['PhysicalResourceId'] = response['IamInstanceProfileAssociation']['AssociationId'];
+
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+          def get_association_id(instanceid):
+              response = ec2.describe_iam_instance_profile_associations(
+              Filters=[
+                  {
+                      'Name': 'instance-id',
+                      'Values': [
+                          instanceid,
+                      ]
+                  },
+              ]
+              )
+              if(response['IamInstanceProfileAssociations']):
+                  return response['IamInstanceProfileAssociations'][0]['AssociationId']
+              else:    
+                  return "NoAssociation"
+          def disassociation(AssociationId):
+            response = ec2.disassociate_iam_instance_profile(
+                AssociationId=AssociationId
+            )
+      Handler: 'index.lambda_handler'
+      Runtime: python3.9
+      Timeout: 30
+      Role: !GetAtt LambdaExecutionRole.Arn
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: '/'
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+            - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/InstanceProfileAttachLambda
+            - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/InstanceProfileAttachLambda:log-stream:*
+              
+          - Effect: Allow
+            Action: ['ec2:AssociateIamInstanceProfile','ec2:DisassociateIamInstanceProfile']
+            Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+            Condition:
+              StringLike:
+                'ec2:ResourceTag/aws:cloud9:environment': !Ref Cloud9Instance
+          - Effect: Allow
+            Action: ['ec2:DescribeInstances','ec2:DescribeIamInstanceProfileAssociations']
+            Resource: '*'
+          - Effect: 'Allow'
+            Action: 'iam:PassRole'
+            Resource: !GetAtt TerraformCloud9Role.Arn
+      
+Outputs:
+  TerraformCloud9Role:
+    Value: !GetAtt TerraformCloud9Role.Arn
+  S3BackendName:
+    Value: !Ref TerraformBackendS3Bucket
+  BackendDynamoDbTable:
+    Value: !Ref BackendDynamoDbTable
