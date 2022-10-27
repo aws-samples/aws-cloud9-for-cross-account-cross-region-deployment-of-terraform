@@ -1,4 +1,4 @@
-# AWS Cloud9 to deploy Terraform cross-account cross-region infrastructure
+# Cloud9 to deploy Terraform cross-account cross-region infrastructure
 
 **Intro paragraphs**: 
 
