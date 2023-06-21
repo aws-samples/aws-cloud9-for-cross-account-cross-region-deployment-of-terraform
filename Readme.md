@@ -79,7 +79,6 @@ If you're using a public subnet (not to be used for production), attach an inter
 
 **Note -**
 Private Subnet with VPC Endpoints will establish Cloud9 connection but Terraform module downloads and provider downloads will fail unless there is internet access.
-AWS administrator, AWS DevOps, AWS systems administrator, Cloud administrator
 
 ### **Step 2 - Spoke Account infrastructure Deployment**
 
@@ -237,3 +236,13 @@ To empty an S3 bucket
         4. Monitor the progress of the bucket emptying process on the **Empty bucket: Status** page.
 1. Next, delete the CloudFormation stack from Spoke account and then Cloud9 Central Account.
 
+### Troubleshooting
+**Q. I am getting error that "Instance profile AWSCloud9SSMInstanceProfile does not exist in this account. Please create an instance profile and role as described here https://docs.aws.amazon.com/cloud9/latest/user-guide/ec2-ssm.html"** \
+**A.** CloudFormation checks if this role is already present or not when creating AWS Cloud9 instance with **ConnectionType: CONNECT_SSM**. Please follow the instructions [here](https://docs.aws.amazon.com/cloud9/latest/user-guide/ec2-ssm.html#aws-cli-instance-profiles) to create this instance profile using CLI. Alternatively, you can also use a [CloudFormation template](https://docs.aws.amazon.com/cloud9/latest/user-guide/ec2-ssm.html#creating-cfn-instance-profile) to create this or just create one temperory Cloud9 instance manually using console. When creating via console, it creates the IAM Role and IAM Instance Profile for us for the account.
+
+**Q. My CloudFormation template rolls back with an error "Cloud9 could not connect to the EC2 instance. Please check your VPC configuration and network settings to troubleshoot the issue."** \
+**A.** If you're using a private subnet (Recommended), allow the instance for the subnet to communicate with the internet by hosting a NAT gateway in a public subnet.
+If you're using a public subnet (not to be used for production), attach an internet gateway to the VPC and internet gateway route to public subnet so the SSM Agent for the instance can connect to Systems Manager.
+
+**Note -**
+Private Subnet with VPC Endpoints will establish Cloud9 connection but Terraform module downloads and provider downloads will fail unless there is internet access.
